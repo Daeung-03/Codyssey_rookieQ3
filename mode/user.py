@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import math
-from time import perf_counter
+
+from core.judge import decide_label
+from core.mac import mac
+from core.performance import measure_mac_time_ms
 
 
 def parse_numeric_row(raw: str, expected_size: int) -> list[float]:
@@ -61,39 +64,14 @@ def read_user_inputs(size: int = 3) -> tuple[list[list[float]], list[list[float]
 	return filter_a, filter_b, pattern
 
 
-def _mac(pattern: list[list[float]], filter_kernel: list[list[float]]) -> float:
-	return sum(
-		pattern[row][col] * filter_kernel[row][col]
-		for row in range(len(pattern))
-		for col in range(len(pattern[row]))
-	)
-
-
-def _judge(score_a: float, score_b: float, epsilon: float) -> str:
-	if abs(score_a - score_b) < epsilon:
-		return "판정불가"
-	return "A" if score_a > score_b else "B"
-
-
-def _measure_avg_time_ms(
-	pattern: list[list[float]],
-	filter_kernel: list[list[float]],
-	repeat: int,
-) -> float:
-	start = perf_counter()
-	for _ in range(repeat):
-		_mac(pattern, filter_kernel)
-	elapsed_s = perf_counter() - start
-	return (elapsed_s * 1000) / repeat
-
-
 def run_user_mode(size: int = 3, epsilon: float = 1e-9, repeat: int = 10) -> dict[str, object]:
 	filter_a, filter_b, pattern = read_user_inputs(size)
-	score_a = _mac(pattern, filter_a)
-	score_b = _mac(pattern, filter_b)
-	decision = _judge(score_a, score_b, epsilon)
-	a_time_ms = _measure_avg_time_ms(pattern, filter_a, repeat)
-	b_time_ms = _measure_avg_time_ms(pattern, filter_b, repeat)
+	score_a = mac(pattern, filter_a)
+	score_b = mac(pattern, filter_b)
+	core_decision = decide_label(score_a, score_b, epsilon)
+	decision = {"Cross": "A", "X": "B", "UNDECIDED": "판정불가"}[core_decision]
+	a_time_ms = measure_mac_time_ms(pattern, filter_a, repeat)
+	b_time_ms = measure_mac_time_ms(pattern, filter_b, repeat)
 
 	print("\n=== user mode 결과 ===")
 	print(f"A 점수: {score_a:.6f} | 평균 시간: {a_time_ms:.6f}ms")

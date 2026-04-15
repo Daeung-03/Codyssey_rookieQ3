@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from mode.json import run_json_mode
 from mode.user import run_user_mode
 
 
@@ -26,7 +27,10 @@ def run_user_flow() -> None:
 
 
 def run_json_flow(json_path: str = "data/data.json") -> None:
-	pass
+	try:
+		run_json_mode(json_path=json_path)
+	except ValueError as error:
+		print(f"json 모드 실행 오류: {error}")
 
 
 def main() -> None:

@@ -208,4 +208,6 @@ pyrightconfig.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python,macos
 
+# Custom ignores
 Problem.md
+data.json
