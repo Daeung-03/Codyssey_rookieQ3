@@ -210,5 +210,4 @@ pyrightconfig.json
 
 # Custom ignores
 Problem.md
-data.json
 data/error_cases
