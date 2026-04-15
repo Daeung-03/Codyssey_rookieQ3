@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from time import perf_counter
 
 
@@ -8,9 +9,12 @@ def parse_numeric_row(raw: str, expected_size: int) -> list[float]:
 	if len(parts) != expected_size:
 		raise ValueError(f"각 줄에 {expected_size}개의 숫자를 공백으로 입력하세요.")
 	try:
-		return [float(value) for value in parts]
+		values = [float(value) for value in parts]
 	except ValueError as error:
 		raise ValueError("숫자만 입력하세요.") from error
+	if any(not math.isfinite(value) for value in values):
+		raise ValueError("NaN 또는 Inf는 입력할 수 없습니다.")
+	return values
 
 
 def parse_binary_row(raw: str, expected_size: int) -> list[float]:
