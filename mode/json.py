@@ -49,36 +49,66 @@ def _to_float_matrix(raw_matrix: object, matrix_name: str) -> list[list[float]]:
 	return matrix
 
 
-def parse_filter_bank(payload: dict[str, object]) -> dict[int, dict[str, list[list[float]]]]:
+def parse_filter_bank(
+	payload: dict[str, object],
+) -> tuple[dict[int, dict[str, list[list[float]]]], dict[int, list[str]], list[str]]:
 	raw_filters = payload.get("filters")
 	if not isinstance(raw_filters, dict):
-		raise ValueError("filters 객체가 필요합니다.")
+		return {}, {}, ["filters 객체가 필요합니다."]
 
 	result: dict[int, dict[str, list[list[float]]]] = {}
+	size_issues: dict[int, list[str]] = {}
+	global_issues: list[str] = []
+	has_size_key = False
 	for size_key, filter_group in raw_filters.items():
 		if not isinstance(size_key, str):
 			continue
 		match = re.match(r"^size_(\d+)$", size_key)
 		if match is None:
 			continue
+		has_size_key = True
 		size = int(match.group(1))
+		issues = size_issues.setdefault(size, [])
 		if not isinstance(filter_group, dict):
-			raise ValueError(f"filters.{size_key}는 객체여야 합니다.")
+			issues.append(f"filters.{size_key}는 객체여야 합니다.")
+			continue
 		normalized_group: dict[str, list[list[float]]] = {}
 		for label_key, matrix in filter_group.items():
-			label = normalize_label(str(label_key))
-			normalized_group[label] = _to_float_matrix(matrix, f"filters.{size_key}.{label_key}")
-		result[size] = normalized_group
+			label_name = str(label_key)
+			try:
+				label = normalize_label(label_name)
+			except ValueError as error:
+				issues.append(f"filters.{size_key}.{label_name}: {error}")
+				continue
+			try:
+				normalized_group[label] = _to_float_matrix(matrix, f"filters.{size_key}.{label_name}")
+			except ValueError as error:
+				issues.append(str(error))
+				continue
 
-	if not result:
-		raise ValueError("유효한 filter(size_N)가 없습니다.")
-	return result
+		if normalized_group:
+			result[size] = normalized_group
+		else:
+			issues.append(f"filters.{size_key}: 유효한 필터가 없습니다.")
+
+	if not has_size_key:
+		global_issues.append("유효한 filter(size_N)가 없습니다.")
+
+	return result, size_issues, global_issues
 
 
 def parse_pattern_cases(payload: dict[str, object]) -> list[dict[str, object]]:
 	raw_patterns = payload.get("patterns")
 	if not isinstance(raw_patterns, dict):
-		raise ValueError("patterns 객체가 필요합니다.")
+		return [
+			{
+				"case_id": "patterns_schema_error",
+				"size": None,
+				"pattern": None,
+				"expected": None,
+				"reason": "patterns 객체가 필요합니다.",
+			}
+		]
 
 	cases: list[dict[str, object]] = []
 	for case_id, item in raw_patterns.items():
@@ -140,7 +170,7 @@ def validate_case_shape(
 
 def run_json_mode(json_path: str = "data/data.json", epsilon: float = 1e-9, repeat: int = 10) -> dict[str, object]:
 	payload = load_json_payload(json_path)
-	filter_bank = parse_filter_bank(payload)
+	filter_bank, filter_size_issues, filter_global_issues = parse_filter_bank(payload)
 	cases = parse_pattern_cases(payload)
 
 	print("\n=== data.json 분석 모드 ===")
@@ -158,6 +188,13 @@ def run_json_mode(json_path: str = "data/data.json", epsilon: float = 1e-9, repe
 			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", None, str(case_reason))
 			case_results.append(result)
 			print(f"{case_id} | FAIL | reason={case_reason}")
+			continue
+
+		if isinstance(size, int) and size in filter_size_issues and size not in filter_bank:
+			reason = f"{case_id}: " + " | ".join(filter_size_issues[size])
+			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected if isinstance(expected, str) else None, reason)
+			case_results.append(result)
+			print(f"{case_id} | FAIL | reason={reason}")
 			continue
 
 		if not isinstance(size, int) or size not in filter_bank:
@@ -229,6 +266,10 @@ def run_json_mode(json_path: str = "data/data.json", epsilon: float = 1e-9, repe
 		print("실패 케이스 목록:")
 		for failure in failures:
 			print(f"- {failure['case_id']}: {failure['reason']}")
+	if filter_global_issues:
+		print("필터 전역 이슈:")
+		for issue in filter_global_issues:
+			print(f"- {issue}")
 
 	return {
 		"mode": "json",
