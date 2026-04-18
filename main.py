@@ -22,10 +22,6 @@ def select_mode() -> ModeName:
 		print("입력 오류: 1 또는 2를 입력하세요.")
 
 
-def run_user_flow() -> None:
-	run_user_mode()
-
-
 def run_json_flow(json_path: str = "data/data.json") -> None:
 	try:
 		run_json_mode(json_path=json_path)
@@ -36,7 +32,7 @@ def run_json_flow(json_path: str = "data/data.json") -> None:
 def main() -> None:
 	mode = select_mode()
 	if mode == "user":
-		run_user_flow()
+		run_user_mode()
 		return
 	run_json_flow()
 
