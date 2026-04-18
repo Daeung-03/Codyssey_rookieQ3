@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 
-from core.judge import decide_label
 from core.mac import mac
 from core.performance import measure_mac_time_ms
 
@@ -64,19 +63,18 @@ def read_user_inputs(size: int = 3) -> tuple[list[list[float]], list[list[float]
 	return filter_a, filter_b, pattern
 
 
-def run_user_mode(size: int = 3, epsilon: float = 1e-9, repeat: int = 10) -> dict[str, object]:
+def run_user_mode(size: int = 3, repeat: int = 10) -> dict[str, object]:
 	filter_a, filter_b, pattern = read_user_inputs(size)
 	score_a = mac(pattern, filter_a)
 	score_b = mac(pattern, filter_b)
-	core_decision = decide_label(score_a, score_b, epsilon)
-	decision = {"Cross": "A", "X": "B", "UNDECIDED": "판정불가"}[core_decision]
+	decision = "A" if score_a >= score_b else "B"
 	a_time_ms = measure_mac_time_ms(pattern, filter_a, repeat)
 	b_time_ms = measure_mac_time_ms(pattern, filter_b, repeat)
 
 	print("\n=== user mode 결과 ===")
 	print(f"A 점수: {score_a:.6f} | 평균 시간: {a_time_ms:.6f}ms")
 	print(f"B 점수: {score_b:.6f} | 평균 시간: {b_time_ms:.6f}ms")
-	print(f"판정: {decision}")
+	print(f"분류: 패턴 {decision}")
 
 	return {
 		"mode": "user",
