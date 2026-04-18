@@ -22,7 +22,7 @@ def select_mode() -> ModeName:
 		print("입력 오류: 1 또는 2를 입력하세요.")
 
 
-def run_json_flow(json_path: str = "data/data.json") -> None:
+def run_json_flow(json_path: str = "data/data1.json") -> None:
 	try:
 		run_json_mode(json_path=json_path)
 	except ValueError as error:

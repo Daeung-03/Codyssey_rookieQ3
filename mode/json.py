@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 
-from core.judge import build_case_result, decide_label, normalize_expected_label
+from core.judge import build_case_result, decide_best_label, normalize_expected_binary_label
 from core.mac import mac_scores, validate_same_shape
 from core.performance import benchmark_sizes
 
@@ -129,7 +129,7 @@ def parse_pattern_cases(payload: dict[str, object]) -> list[dict[str, object]]:
 		size = int(match.group(1))
 		try:
 			pattern = _to_float_matrix(item.get("input"), f"patterns.{case_id}.input")
-			expected = normalize_expected_label(str(item.get("expected", "")))
+			expected = normalize_expected_binary_label(str(item.get("expected", "")))
 			cases.append(
 				{
 					"case_id": case_id,
@@ -168,7 +168,7 @@ def validate_case_shape(
 	return True, None
 
 
-def run_json_mode(json_path: str = "data/data.json", epsilon: float = 1e-9, repeat: int = 10) -> dict[str, object]:
+def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, repeat: int = 10) -> dict[str, object]:
 	payload = load_json_payload(json_path)
 	filter_bank, filter_size_issues, filter_global_issues = parse_filter_bank(payload)
 	cases = parse_pattern_cases(payload)
@@ -220,7 +220,7 @@ def run_json_mode(json_path: str = "data/data.json", epsilon: float = 1e-9, repe
 			continue
 
 		scores = mac_scores(pattern, {"Cross": filters_by_label["Cross"], "X": filters_by_label["X"]})
-		predicted = decide_label(scores["Cross"], scores["X"], epsilon)
+		predicted = decide_best_label(scores["Cross"], scores["X"], epsilon)
 		result = build_case_result(
 			case_id=case_id,
 			score_cross=scores["Cross"],

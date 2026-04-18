@@ -18,6 +18,21 @@ def normalize_expected_label(expected: str) -> str:
 	raise ValueError(f"지원하지 않는 라벨입니다: {expected}")
 
 
+def normalize_expected_binary_label(expected: str) -> str:
+	raw = expected.strip().lower()
+	if raw in {"+", "cross"}:
+		return "Cross"
+	if raw in {"x"}:
+		return "X"
+	raise ValueError(f"지원하지 않는 expected 라벨입니다(Cross/X만 허용): {expected}")
+
+
+def decide_best_label(score_cross: float, score_x: float, epsilon: float = 1e-9) -> str:
+	if score_cross + epsilon >= score_x:
+		return "Cross"
+	return "X"
+
+
 def evaluate_prediction(predicted: str, expected: str) -> bool:
 	return predicted == normalize_expected_label(expected)
 
