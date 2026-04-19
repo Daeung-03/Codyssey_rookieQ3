@@ -8,6 +8,30 @@ from core.mac import mac_scores, validate_same_shape
 from core.performance import benchmark_synthetic_sizes
 
 
+def _build_fail_result(
+	case_id: str,
+	expected: str | None,
+	reason: str,
+	reason_prefix: str,
+) -> dict[str, object]:
+	prefixed_reason = f"{reason_prefix}: {reason}"
+	return build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected, prefixed_reason)
+
+
+def _classify_result_fail(
+	predicted: str,
+	expected: str | None,
+	score_cross: float,
+	score_x: float,
+	epsilon: float,
+) -> str | None:
+	if expected is None or predicted == expected:
+		return None
+	if abs(score_cross - score_x) <= epsilon:
+		return "Statics"
+	return "Logic"
+
+
 def load_json_payload(json_path: str) -> dict[str, object]:
 	try:
 		with open(json_path, "r", encoding="utf-8") as file:
@@ -185,38 +209,38 @@ def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, rep
 		case_reason = case.get("reason")
 
 		if case_reason is not None:
-			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", None, str(case_reason))
+			result = _build_fail_result(case_id, None, str(case_reason), "Data_schema")
 			case_results.append(result)
-			print(f"{case_id} | FAIL | reason={case_reason}")
+			print(f"{case_id} | FAIL | reason={result['reason']}")
 			continue
 
 		if isinstance(size, int) and size in filter_size_issues and size not in filter_bank:
 			reason = f"{case_id}: " + " | ".join(filter_size_issues[size])
-			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected if isinstance(expected, str) else None, reason)
+			result = _build_fail_result(case_id, expected if isinstance(expected, str) else None, reason, "Data_schema")
 			case_results.append(result)
-			print(f"{case_id} | FAIL | reason={reason}")
+			print(f"{case_id} | FAIL | reason={result['reason']}")
 			continue
 
 		if not isinstance(size, int) or size not in filter_bank:
 			reason = f"{case_id}: size_{size} 필터를 찾을 수 없습니다."
-			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected if isinstance(expected, str) else None, reason)
+			result = _build_fail_result(case_id, expected if isinstance(expected, str) else None, reason, "Data_schema")
 			case_results.append(result)
-			print(f"{case_id} | FAIL | reason={reason}")
+			print(f"{case_id} | FAIL | reason={result['reason']}")
 			continue
 
 		if not isinstance(pattern, list):
 			reason = f"{case_id}: pattern 데이터가 없습니다."
-			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected if isinstance(expected, str) else None, reason)
+			result = _build_fail_result(case_id, expected if isinstance(expected, str) else None, reason, "Data_schema")
 			case_results.append(result)
-			print(f"{case_id} | FAIL | reason={reason}")
+			print(f"{case_id} | FAIL | reason={result['reason']}")
 			continue
 
 		filters_by_label = filter_bank[size]
 		is_valid, reason = validate_case_shape(case_id, pattern, filters_by_label)
 		if not is_valid:
-			result = build_case_result(case_id, 0.0, 0.0, "UNDECIDED", expected if isinstance(expected, str) else None, reason)
+			result = _build_fail_result(case_id, expected if isinstance(expected, str) else None, str(reason), "Data_schema")
 			case_results.append(result)
-			print(f"{case_id} | FAIL | reason={reason}")
+			print(f"{case_id} | FAIL | reason={result['reason']}")
 			continue
 
 		scores = mac_scores(pattern, {"Cross": filters_by_label["Cross"], "X": filters_by_label["X"]})
@@ -228,22 +252,37 @@ def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, rep
 			predicted=predicted,
 			expected=expected if isinstance(expected, str) else None,
 		)
+		fail_type = _classify_result_fail(
+			predicted=result["predicted"],
+			expected=result["expected"],
+			score_cross=float(result["score_cross"]),
+			score_x=float(result["score_x"]),
+			epsilon=epsilon,
+		)
+		if fail_type is not None:
+			result["reason"] = f"{fail_type}: 예측값과 expected 불일치"
 		case_results.append(result)
 
+		status_text = result["status"]
 		print(
 			f"{case_id} | Cross={scores['Cross']:.6f} | X={scores['X']:.6f} | "
-			f"pred={predicted} | expected={result['expected']} | {result['status']}"
+			f"pred={predicted} | expected={result['expected']} | {status_text}"
 		)
 
 	total_count = len(case_results)
 	pass_count = sum(1 for item in case_results if bool(item["pass"]))
 	fail_count = total_count - pass_count
 
-	failures = [
-		{"case_id": item["case_id"], "reason": item["reason"] or "예측값과 expected 불일치"}
-		for item in case_results
-		if not bool(item["pass"])
-	]
+	failures = []
+	for item in case_results:
+		if bool(item["pass"]):
+			continue
+		failures.append(
+			{
+				"case_id": item["case_id"],
+				"reason": item["reason"] or "Logic: 예측값과 expected 불일치",
+			}
+		)
 
 	performance_rows = benchmark_synthetic_sizes(benchmark_sizes, repeat)
 
