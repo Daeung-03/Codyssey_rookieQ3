@@ -38,3 +38,39 @@ def benchmark_sizes(
 		results.append(benchmark_single_size(size, pattern, filter_kernel, repeat))
 	return results
 
+
+def build_synthetic_case(size: int) -> tuple[list[list[float]], list[list[float]]]:
+	if size <= 0:
+		raise ValueError("size는 1 이상이어야 합니다.")
+	pattern = [[1.0 for _ in range(size)] for _ in range(size)]
+	filter_kernel = [[1.0 for _ in range(size)] for _ in range(size)]
+	return pattern, filter_kernel
+
+
+def benchmark_synthetic_sizes(sizes: list[int], repeat: int = 10) -> list[dict[str, object]]:
+	if not sizes:
+		return []
+
+	results: list[dict[str, object]] = []
+	for size in sorted(sizes):
+		pattern, filter_kernel = build_synthetic_case(size)
+		avg_time_ms = measure_mac_time_ms(pattern, filter_kernel, repeat)
+		operations = size * size
+		results.append(
+			{
+				"size": size,
+				"avg_time_ms": avg_time_ms,
+				"operations": operations,
+			}
+		)
+
+	for index in range(1, len(results)):
+		current = results[index]
+		previous = results[index - 1]
+		time_ratio = float(current["avg_time_ms"]) / float(previous["avg_time_ms"])
+		current["time_ratio_from_prev"] = time_ratio
+
+	results[0]["time_ratio_from_prev"] = None
+
+	return results
+

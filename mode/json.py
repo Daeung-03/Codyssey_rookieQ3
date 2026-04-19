@@ -5,7 +5,7 @@ import re
 
 from core.judge import build_case_result, decide_best_label, normalize_expected_binary_label
 from core.mac import mac_scores, validate_same_shape
-from core.performance import benchmark_sizes
+from core.performance import benchmark_synthetic_sizes
 
 
 def load_json_payload(json_path: str) -> dict[str, object]:
@@ -172,10 +172,10 @@ def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, rep
 	payload = load_json_payload(json_path)
 	filter_bank, filter_size_issues, filter_global_issues = parse_filter_bank(payload)
 	cases = parse_pattern_cases(payload)
+	benchmark_sizes = [1, 2, 4, 8, 16, 32]
 
 	print("\n=== data.json 분석 모드 ===")
 	case_results: list[dict[str, object]] = []
-	first_case_by_size: dict[int, tuple[list[list[float]], list[list[float]]]] = {}
 
 	for case in cases:
 		case_id = str(case["case_id"])
@@ -230,9 +230,6 @@ def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, rep
 		)
 		case_results.append(result)
 
-		if size not in first_case_by_size:
-			first_case_by_size[size] = (pattern, filters_by_label["Cross"])
-
 		print(
 			f"{case_id} | Cross={scores['Cross']:.6f} | X={scores['X']:.6f} | "
 			f"pred={predicted} | expected={result['expected']} | {result['status']}"
@@ -248,17 +245,17 @@ def run_json_mode(json_path: str = "data/data1.json", epsilon: float = 1e-9, rep
 		if not bool(item["pass"])
 	]
 
-	if 3 not in first_case_by_size:
-		synthetic_pattern = [[1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]
-		synthetic_filter = [[1.0, 0.0, 1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 1.0]]
-		first_case_by_size[3] = (synthetic_pattern, synthetic_filter)
+	performance_rows = benchmark_synthetic_sizes(benchmark_sizes, repeat)
 
-	performance_rows = benchmark_sizes(first_case_by_size, repeat)
-
-	print("\n=== 성능 분석 (MAC 평균, ms) ===")
-	print("크기(NxN) | 평균 시간(ms) | 연산 횟수(N^2)")
+	print("\n=== 성능 분석 (합성 데이터 MAC 평균, ms) ===")
+	print("크기(NxN) | 평균 시간(ms) | 연산 횟수(N^2) | 이전 대비 시간비")
 	for row in performance_rows:
-		print(f"{row['size']}x{row['size']} | {row['avg_time_ms']:.6f} | {row['operations']}")
+		time_ratio = row["time_ratio_from_prev"]
+		time_ratio_text = "-" if time_ratio is None else f"{float(time_ratio):.3f}"
+		print(
+			f"{row['size']}x{row['size']} | {row['avg_time_ms']:.6f} | {row['operations']} | "
+			f"{time_ratio_text}"
+		)
 
 	print("\n=== 결과 요약 ===")
 	print(f"총 {total_count}건 | PASS {pass_count}건 | FAIL {fail_count}건")
