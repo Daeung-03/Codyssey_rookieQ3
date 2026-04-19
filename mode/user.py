@@ -67,7 +67,8 @@ def run_user_mode(size: int = 3, repeat: int = 10) -> dict[str, object]:
 	filter_a, filter_b, pattern = read_user_inputs(size)
 	score_a = mac(pattern, filter_a)
 	score_b = mac(pattern, filter_b)
-	decision = "A" if score_a >= score_b else "B"
+	decision = "A" if score_a > score_b else "B"
+	decision = "UNDECIDED" if score_a == score_b else decision
 	a_time_ms = measure_mac_time_ms(pattern, filter_a, repeat)
 	b_time_ms = measure_mac_time_ms(pattern, filter_b, repeat)
 
