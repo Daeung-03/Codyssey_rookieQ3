@@ -182,8 +182,6 @@ def validate_case_shape(
 	pattern: list[list[float]],
 	filters_by_label: dict[str, list[list[float]]],
 ) -> tuple[bool, str | None]:
-	if not pattern or any(len(row) != len(pattern) for row in pattern):
-		return False, f"{case_id}: pattern이 정사각 행렬이 아닙니다."
 	for label in ("Cross", "X"):
 		if label not in filters_by_label:
 			return False, f"{case_id}: {label} 필터가 없습니다."
